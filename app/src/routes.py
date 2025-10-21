@@ -125,7 +125,7 @@ from .event_analyzer import EventAnalyzer
     response_model=Union[List[str], Dict[str, str]],
 )
 def get_joiners_multiple_meetings():
-    # Initialize analyzer instance (as required by the task)
+    # Initialize analyzer instance
     analyzer = EventAnalyzer()
 
     events = EventFileManager.read_events_from_file()
