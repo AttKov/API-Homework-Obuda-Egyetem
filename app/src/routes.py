@@ -1,103 +1,137 @@
-from fastapi import APIRouter, HTTPException
-from typing import List
-import random
+from fastapi import APIRouter
+from typing import List, Union, Dict
 from .models import Event
-from .event_analyzer import EventAnalyzer
 from .file_storage import EventFileManager
+from .event_analyzer import EventAnalyzer
+
+
 
 router = APIRouter()
 
-file_manager = EventFileManager()
-
-@router.get("/events", response_model=List[Event])
-async def get_all_events():
-    return file_manager.read_events_from_file()
+@router.get("", summary="Get All Events", response_model=List[Event])
+def get_all_events():
+    return EventFileManager.read_events_from_file()
 
 
-@router.get("/events/filter", response_model=List[Event])
-async def get_events_by_filter(date: str = None, organizer: str = None, status: str = None, event_type: str = None):
-    filtered_events = file_manager.read_events_from_file()
+@router.post("", summary="Create Event", response_model=Event, status_code=201)
+def create_event(event: Event):
+    #  Read current events from file
+    events = EventFileManager.read_events_from_file()
 
-    if date:
-        filtered_events = [event for event in filtered_events if event['date'] == date]
-    if organizer:
-        filtered_events = [event for event in filtered_events if event['organizer']['email'] == organizer]
-    if status:
-        filtered_events = [event for event in filtered_events if event['status'] == status]
-    if event_type:
-        filtered_events = [event for event in filtered_events if event['type'] == event_type]
+    #  Check for duplicate ID
+    if any(ev.get("id") == event.id for ev in events):
+        raise HTTPException(status_code=400, detail="Event ID already exists")
 
-    if not any([date, organizer, status, event_type]):
-        raise HTTPException(status_code=400, detail="At least one filtering parameter required")
+    # Add the new event
+    events.append(event.model_dump() if hasattr(event, "model_dump") else event.dict())
 
-    return filtered_events
+    # Write updated list to file
+    EventFileManager.write_events_to_file(events)
 
-
-
-
-@router.get("/events/{event_id}", response_model=Event)
-async def get_event_by_id(event_id: int):
-    events = file_manager.read_events_from_file()
-    for event in events:
-        if event['id'] == event_id:
-            return event
-    raise HTTPException(status_code=404, detail="Event not found")
-
-
-@router.post("/events", response_model=Event)
-async def create_event(event: Event):
-    events = file_manager.read_events_from_file()
-    
-    if not event.id:
-        raise HTTPException(status_code=400, detail="Event ID cannot be empty")
-
-    for existing_event in events:
-        if existing_event["id"] == event.id:
-            raise HTTPException(status_code=400, detail="Event ID already exists")
-
-    events.append(event.dict())  # Convert Event object to dictionary before appending
-
-    file_manager.write_events_to_file(events)
+    # Return the created event
     return event
 
-@router.put("/events/{event_id}", response_model=Event)
-async def update_event(event_id: int, event: Event):
-    events = file_manager.read_events_from_file()
-    for i, existing_event in enumerate(events):
-        if existing_event["id"] == event_id:
-            events[i] = event.model_dump()
-            file_manager.write_events_to_file(events)
-            return event
+@router.get("/filter", summary="Filter Events", response_model=List[Event])
+def get_events_by_filter(
+    date: str = None,
+    organizer: str = None,
+    status: str = None,
+    event_type: str = None
+):
+    #  Read all events from file
+    events = EventFileManager.read_events_from_file()
+
+    # Apply filters one by one if provided
+    filtered = []
+    for ev in events:
+        if date and ev.get("date") != date:
+            continue
+        if organizer:
+            # organizer is nested; check name or email
+            org = ev.get("organizer", {})
+            if organizer.lower() not in str(org.get("name", "")).lower() \
+               and organizer.lower() not in str(org.get("email", "")).lower():
+                continue
+        if status and ev.get("status", "").lower() != status.lower():
+            continue
+        if event_type and ev.get("type", "").lower() != event_type.lower():
+            continue
+        filtered.append(ev)
+
+    return filtered
+
+
+@router.get("/{event_id}", summary="Get Event By Id", response_model=Event)
+def get_event_by_id(event_id: int):
+    events = EventFileManager.read_events_from_file()
+    for ev in events:
+        if ev.get("id") == event_id:
+            return ev
+    # If not found, return a 404
     raise HTTPException(status_code=404, detail="Event not found")
 
-@router.delete("/events/{event_id}")
-async def delete_event(event_id: int):
-    events = file_manager.read_events_from_file()
+@router.put("/{event_id}", summary="Update Event", response_model=Event)
+def update_event(event_id: int, new_event: Event):
+    # 1) Read existing events
+    events = EventFileManager.read_events_from_file()
 
-    event_found = False
-    for event in events:
-        if event["id"] == event_id:
-            event_found = True
-            break
+    # 2) Find the event by ID
+    for i, ev in enumerate(events):
+        if ev.get("id") == event_id:
+            # 3) Make the path param authoritative
+            #    (ignore/override any 'id' inside the body)
+            payload = new_event.model_dump() if hasattr(new_event, "model_dump") else new_event.dict()
+            payload["id"] = event_id
 
-    if not event_found:
-        raise HTTPException(status_code=404, detail="Event not found")
+            # 4) Replace and persist
+            events[i] = payload
+            EventFileManager.write_events_to_file(events)
+            return payload
 
-    updated_events = [event for event in events if event["id"] != event_id]
+    # 5) Not found → 404
+    raise HTTPException(status_code=404, detail="Event Not found")
 
-    file_manager.write_events_to_file(updated_events)
+@router.delete("/{event_id}", summary="Delete Event")
+def delete_event(event_id: int):
+    # 1) Read current events
+    events = EventFileManager.read_events_from_file()
 
+    # 2) Remove the one with matching id
+    new_events = [ev for ev in events if ev.get("id") != event_id]
+
+    # 3) If nothing was removed -> 404
+    if len(new_events) == len(events):
+        raise HTTPException(status_code=404, detail="Event Not found")
+
+    # 4) Persist the updated list
+    EventFileManager.write_events_to_file(new_events)
+
+    # 5) Return success message
     return {"message": "Event deleted successfully"}
 
+from typing import List, Union, Dict  # make sure this line exists at the top
+from .file_storage import EventFileManager
+from .event_analyzer import EventAnalyzer
 
-@router.get("/events/joiners/multiple-meetings")
-async def get_joiners_multiple_meetings():
-    events = file_manager.read_events_from_file()
-    event_analyzer = EventAnalyzer(events)
-    filtered_joiners = event_analyzer.get_joiners_multiple_meetings()
 
-    if not filtered_joiners:
+from typing import List, Union, Dict  # make sure this line exists at the top
+from .file_storage import EventFileManager
+from .event_analyzer import EventAnalyzer
+
+
+@router.get(
+    "/joiners/multiple-meetings",
+    summary="Get Joiners Multiple Meetings",
+    response_model=Union[List[str], Dict[str, str]],
+)
+def get_joiners_multiple_meetings():
+    # Initialize analyzer instance (as required by the task)
+    analyzer = EventAnalyzer()
+
+    events = EventFileManager.read_events_from_file()
+    joiners = analyzer.get_joiners_multiple_meetings_method(events)
+
+    if not joiners:
         return {"message": "No joiners attending at least 2 meetings"}
 
-    random_joiner = random.choice(filtered_joiners)
-    return random_joiner
+    return joiners

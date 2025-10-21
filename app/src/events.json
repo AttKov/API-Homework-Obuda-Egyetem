@@ -1,0 +1,107 @@
+[
+  {
+    "id": 1,
+    "name": "Test event 1",
+    "date": "2024-03-06",
+    "organizer": {
+      "name": "fdev",
+      "email": "fdev@example.com"
+    },
+    "status": "active",
+    "type": "event",
+    "joiners": [
+      {
+        "name": "Test User",
+        "email": "test@test.com",
+        "country": "Hungary"
+      }
+    ],
+    "location": "Budapest, Hungary",
+    "max_attendees": 100
+  },
+  {
+    "id": 2,
+    "name": "Team Meeting",
+    "date": "2025-01-20",
+    "organizer": {
+      "name": "Alice",
+      "email": "alice@example.com"
+    },
+    "status": "active",
+    "type": "event",
+    "location": "Room B",
+    "max_attendees": 20,
+    "joiners": [
+      {
+        "name": "Bob",
+        "email": "bob@example.com",
+        "country": "Hungary"
+      }
+    ]
+  },
+  {
+    "id": 4,
+    "name": "Sprint Planning",
+    "date": "2025-02-05",
+    "organizer": {
+      "name": "Alice",
+      "email": "alice@example.com"
+    },
+    "status": "active",
+    "type": "event",
+    "location": "Room D",
+    "max_attendees": 15,
+    "joiners": [
+      {
+        "name": "Test User",
+        "email": "test@test.com",
+        "country": "Hungary"
+      }
+    ]
+  },
+  {
+    "id": 5,
+    "name": "Planning Sprint",
+    "date": "2025-02-01",
+    "organizer": {
+      "name": "Alice",
+      "email": "alice@example.com"
+    },
+    "status": "active",
+    "type": "event",
+    "location": "Room B",
+    "max_attendees": 30,
+    "joiners": [
+      {
+        "name": "John Doe",
+        "email": "john.doe@example.com",
+        "country": "USA"
+      },
+      {
+        "name": "Jane Smith",
+        "email": "jane.smith@example.com",
+        "country": "Canada"
+      }
+    ]
+  },
+  {
+    "id": 6,
+    "name": "Team Kickoff",
+    "date": "2025-01-15",
+    "organizer": {
+      "name": "Alice",
+      "email": "alice@example.com"
+    },
+    "status": "active",
+    "type": "event",
+    "location": "Room A",
+    "max_attendees": 50,
+    "joiners": [
+      {
+        "name": "John Doe",
+        "email": "john.doe@example.com",
+        "country": "USA"
+      }
+    ]
+  }
+]
