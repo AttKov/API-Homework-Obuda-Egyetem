@@ -3,7 +3,7 @@ from collections import Counter
 from typing import Any, Dict, Iterable, List
 
 try:
-    # optional import; we only use it for isinstance checks
+    # optional import
     from pydantic import BaseModel  # type: ignore
 except Exception:  # pragma: no cover
     BaseModel = object  # fallback if pydantic not present in this scope
